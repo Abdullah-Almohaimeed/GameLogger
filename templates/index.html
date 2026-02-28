@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameLogger</title> <button class="delete-btn" onclick="shutdown()" style="float: right;">⏹ Stop Server</button>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 30px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #a78bfa;
+            letter-spacing: 1px;
+        }
+
+        .stats {
+            margin-bottom: 20px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #16213e;
+            font-size: 14px;
+        }
+
+        thead {
+            background-color: #0f3460;
+            color: #a78bfa;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #1a1a2e;
+            white-space: nowrap;
+        }
+
+        tr:hover {
+            background-color: #0f3460;
+            transition: background-color 0.2s;
+        }
+
+        input.editable {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #e0e0e0;
+            width: 70px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        input.editable:focus {
+            outline: none;
+            border-color: #a78bfa;
+            background-color: #1a1a2e;
+        }
+
+        input.editable.saved {
+            border-color: #22c55e;
+        }
+
+        .save-btn {
+            background-color: #a78bfa;
+            color: #1a1a2e;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .save-btn:hover {
+            background-color: #7c3aed;
+            color: white;
+        }
+
+        .delete-btn {
+            background-color: transparent;
+            color: #ef4444;
+            border: 1px solid #ef4444;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .delete-btn:hover {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .rating-bar {
+            display: inline-block;
+            height: 6px;
+            background-color: #a78bfa;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background-color: #22c55e;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.error {
+            background-color: #ef4444;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎮 GameLogger</h1>
+    <div class="stats">{{ games|length }} games logged</div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Released</th>
+                    <th>Genres</th>
+                    <th>Platforms</th>
+                    <th>RAWG Rating</th>
+                    <th>Metacritic</th>
+                    <th>Playtime</th>
+                    <th>Beat</th>
+                    <th>Self Rating</th>
+                    <th>Date Added</th>
+                    <th>Save</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for game in games %}
+                <tr id="row-{{ game.id }}">
+                    <td>{{ game.name }}</td>
+                    <td>{{ game.released or '—' }}</td>
+                    <td>{{ game.genres or '—' }}</td>
+                    <td>{{ game.platforms or '—' }}</td>
+                    <td>
+                        {{ game.user_rating or '—' }}
+                        {% if game.user_rating %}
+                            <span class="rating-bar" style="width: {{ (game.user_rating / 5 * 60)|int }}px"></span>
+                        {% endif %}
+                    </td>
+                    <td>{{ game.metacritic or '—' }}</td>
+                    <td>{{ game.playtime or '—' }}{% if game.playtime %}h{% endif %}</td>
+                    <td><input class="editable" type="text" id="beat-{{ game.id }}" value="{{ game.beat or '' }}" placeholder="YYYY" maxlength="4"></td>
+                    <td><input class="editable" type="number" id="self_rating-{{ game.id }}" value="{{ game.self_rating or '' }}" placeholder="0-10" step="0.5" min="0" max="10"></td>
+                    <td>{{ game.date_added.strftime('%Y-%m-%d') if game.date_added else '—' }}</td>
+                    <td><button class="save-btn" onclick="saveRow({{ game.id }})">Save</button></td>
+                    <td><button class="delete-btn" onclick="deleteRow({{ game.id }})">Delete</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        function showToast(message, error = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast' + (error ? ' error' : '') + ' show';
+            setTimeout(() => toast.className = 'toast', 2500);
+        }
+
+        function saveRow(id) {
+            const beat = document.getElementById('beat-' + id).value;
+            const self_rating = document.getElementById('self_rating-' + id).value;
+            fetch('/update/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ beat, self_rating })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('beat-' + id).classList.add('saved');
+                    document.getElementById('self_rating-' + id).classList.add('saved');
+                    showToast('Saved!');
+                } else {
+                    showToast('Error saving: ' + data.error, true);
+                }
+            });
+        }
+
+        function deleteRow(id) {
+            if (!confirm('Delete this game?')) return;
+            fetch('/delete/' + id, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('row-' + id).remove();
+                    showToast('Deleted!');
+                } else {
+                    showToast('Error deleting: ' + data.error, true);
+                }
+            });
+        }
+
+        function shutdown() {
+        if (!confirm('Stop the server?')) return;
+        fetch('/shutdown', { method: 'POST' })
+        .then(() => {
+            showToast('Server stopped. You can close this tab.');
+    });
+}
+    </script>
+
+</body>
+</html>
