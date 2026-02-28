@@ -1,0 +1,6 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\lnkfile\shell\Check Game]
+
+[HKEY_CLASSES_ROOT\lnkfile\shell\Check Game\command]
+@="\"C:\\GameLogger\\check_game.bat\" \"%1\""
